@@ -38,13 +38,14 @@ hist.to_csv("max_sp500tr.csv")
 vol.to_csv("max_volatilidad.csv")
 o.to_csv("max_oro.csv")
 div.to_csv("max_dxy.csv")
-dry.to_csv("max_baltic.csv")
 yield_.to_csv("max_hyg.csv")
 wti_df.to_csv('max_wti_crude_oil_prices.csv', index_label='Fecha')
 dgs10_df.to_csv('max_dgs10.csv', index_label='Fecha')
 dgs2_df.to_csv('max_dgs2.csv', index_label='Fecha')
 gs1m_df.to_csv('max_gs1m.csv', index_label='Fecha')
+
 DXY_FRED_df.to_csv('max_DXY_FRED.csv', index_label='Fecha')
+dry.to_csv("max_baltic.csv")
 
 # Mostrar los primeros 5 registros de cada DataFrame
 print(hist.head())
