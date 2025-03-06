@@ -4,7 +4,10 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from statsmodels.tsa.arima.model import ARIMA
 from statsmodels.tsa.stattools import adfuller
-from sklearn.metrics import confusion_matrix, classification_report, roc_auc_score
+from sklearn.metrics import confusion_matrix, classification_report, roc_auc_score, mean_squared_error, accuracy_score, roc_curve
+from statsmodels.tsa.statespace.sarimax import SARIMAX
+import itertools
+from imblearn.over_sampling import SMOTE
 
 # Cargar y limpiar cada archivo CSV y seleccionar solo la columna 'Close'
 hist = pd.read_csv('max_sp500tr.csv', parse_dates=['Date'], index_col='Date').rename(columns={'Value': 'Close'})['Close']
@@ -81,7 +84,7 @@ exog_vars['Bonos 10 Años'] = dickey_fuller_and_diff(exog_vars['Bonos 10 Años']
 exog_vars['Oro'] = dickey_fuller_and_diff(exog_vars['Oro'])
 exog_vars['DXY'] = dickey_fuller_and_diff(exog_vars['DXY'])
 exog_vars['WTI'] = dickey_fuller_and_diff(exog_vars['WTI'])
-exog_vars['High Yield'] = dickey_fuller_and_diff(exog_vars['High Yield'])
+exog_vars['HGY'] = dickey_fuller_and_diff(exog_vars['HGY'])
 
 # Dividir en train (70%) y test (30%)
 split_point = int(len(combined_df) * 0.7)
@@ -99,37 +102,80 @@ train_exog = train_exog.fillna(method='bfill')  # Rellenar valores NaN con el si
 test_exog = test_exog.replace([np.inf, -np.inf], np.nan)
 test_exog = test_exog.fillna(method='bfill')
 
-# Ajuste ARIMAX
-model_arimax = ARIMA(train_data['Downfall'], exog=train_exog, order=(2, 1, 2))
+# Optimización de hiperparámetros ARIMAX
+p = range(0, 4)
+d = range(0, 2)
+q = range(0, 4)
+
+param_grid = list(itertools.product(p, d, q))
+
+best_aic = float('inf')
+best_order = None
+best_model = None
+
+for order in param_grid:
+    try:
+        model = SARIMAX(train_data['Downfall'], exog=train_exog, order=order)
+        results = model.fit(disp=False)
+        if results.aic < best_aic:
+            best_aic = results.aic
+            best_order = order
+            best_model = results
+    except:
+        continue
+
+print(f"Mejor orden ARIMAX: {best_order} con AIC: {best_aic}")
+
+model_arimax = ARIMA(train_data['Downfall'], exog=train_exog, order=best_order)
 results_arimax = model_arimax.fit()
 
-# Predicciones (probabilidades)
 forecast_prob = results_arimax.predict(exog=test_exog, start=test_data.index[0], end=test_data.index[-1])
 
-# Convertir probabilidades a clases binarias (umbral del 60%)
-forecast_class = (forecast_prob > 0.6).astype(int)
+# Balanceo de clases con SMOTE
+smote = SMOTE(random_state=42)
+X_res, y_res = smote.fit_resample(train_exog, train_data['Downfall'])
+print(pd.Series(y_res).value_counts())
 
+# Umbral óptimo para clasificación
+fpr, tpr, thresholds = roc_curve(test_data['Downfall'], forecast_prob)
+optimal_idx = np.argmax(tpr - fpr)
+optimal_threshold = thresholds[optimal_idx]
+print(f"Umbral óptimo: {optimal_threshold}")
+
+forecast_class = (forecast_prob > optimal_threshold).astype(int)
 # Asegurarse de que las predicciones tengan el mismo tamaño que el conjunto de prueba
 forecast_class.index = test_data.index
 
 # Evaluar modelo
+rmse = np.sqrt(mean_squared_error(test_data['Downfall'], forecast_prob))
+accuracy = accuracy_score(test_data['Downfall'], forecast_class)
+print(f"RMSE: {rmse}")
+print(f"Accuracy: {accuracy}")
+print(f"AIC: {results_arimax.aic}")
+print(f"BIC: {results_arimax.bic}")
+
+# Reportes y métricas
 print("Classification Report:")
 print(classification_report(test_data['Downfall'], forecast_class))
 print("ROC AUC Score:", roc_auc_score(test_data['Downfall'], forecast_prob))
 
+# Curva ROC
+fpr, tpr, thresholds = roc_curve(test_data['Downfall'], forecast_prob)
+plt.plot(fpr, tpr, color='darkorange', lw=2)
+plt.plot([0, 1], [0, 1], color='navy', linestyle='--')
+plt.xlabel('False Positive Rate')
+plt.ylabel('True Positive Rate')
+plt.title('ROC Curve')
+plt.show()
+
 # Matriz de confusión
 conf_matrix = confusion_matrix(test_data['Downfall'], forecast_class)
-print("Confusion Matrix:")
-print(conf_matrix)
-
-# Visualización de la matriz de confusión
 plt.figure(figsize=(6, 5))
 sns.heatmap(conf_matrix, annot=True, fmt='d', cmap='Blues', xticklabels=['Predicho: No Caída', 'Predicho: Caída'], yticklabels=['Real: No Caída', 'Real: Caída'])
 plt.title('Matriz de Confusión')
 plt.xlabel('Predicción')
 plt.ylabel('Real')
 plt.show()
-
 
 # Seleccionar los datos entre febrero y mayo de 2020
 start_date = '2020-02-01'
