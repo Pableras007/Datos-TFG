@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import MinMaxScaler
-from sklearn.metrics import classification_report, confusion_matrix, roc_auc_score, roc_curve, accuracy_score
+from sklearn.metrics import classification_report, confusion_matrix, roc_auc_score, roc_curve, accuracy_score, mean_squared_error
 import seaborn as sns
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import LSTM, Dense, Dropout
@@ -136,6 +136,10 @@ print(f"Umbral Óptimo: {optimal_threshold}")
 y_pred = (y_prob > optimal_threshold).astype(int)
 
 # Evaluar
+rmse = np.sqrt(mean_squared_error(y_test, y_prob))
+accuracy = accuracy_score(y_test, y_pred)
+print(f"RMSE: {rmse}")
+print(f"Accuracy: {accuracy}")
 print("Classification Report:")
 print(classification_report(y_test, y_pred))
 print("ROC AUC Score:", roc_auc_score(y_test, y_prob))
@@ -166,17 +170,18 @@ plt.xlabel('Predicción')
 plt.ylabel('Real')
 plt.show()
 
-# Convertir a DataFrames para graficar
-test_data = pd.DataFrame({'Real': y_test}, index=test_dates)
-forecast_class = pd.DataFrame({'Predicho': y_pred.flatten()}, index=test_dates)
+# Crear un rango de fechas para y_test
+test_dates = combined_df.index[-len(y_test):]  # Últimas fechas según el tamaño de y_test
 
-# Seleccionar los datos entre febrero y mayo de 2020
+# Convertir y_test y las predicciones a pandas Series con fechas como índice
+y_test_series = pd.Series(y_test, index=test_dates)
+y_prob_series = pd.Series(y_prob.flatten(), index=test_dates)
+
+# Seleccionar las fechas específicas
 start_date = '2020-02-01'
 end_date = '2020-05-31'
-
-# Extraer los datos reales y las predicciones para ese intervalo
-selected_data = test_data.loc[start_date:end_date]
-selected_forecast_class = forecast_class.loc[start_date:end_date]
+selected_data = y_test_series.loc[start_date:end_date]
+selected_forecast_class = y_prob_series.loc[start_date:end_date]
 
 # Graficar los valores reales y las predicciones
 plt.figure(figsize=(12, 6))

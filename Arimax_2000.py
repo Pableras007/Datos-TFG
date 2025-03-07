@@ -141,6 +141,7 @@ optimal_threshold = thresholds[optimal_idx]
 print(f"Umbral óptimo: {optimal_threshold}")
 
 forecast_class = (forecast_prob > optimal_threshold).astype(int)
+
 # Asegurarse de que las predicciones tengan el mismo tamaño que el conjunto de prueba
 forecast_class.index = test_data.index
 

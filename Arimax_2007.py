@@ -84,7 +84,7 @@ exog_vars['Bonos 10 Años'] = dickey_fuller_and_diff(exog_vars['Bonos 10 Años']
 exog_vars['Oro'] = dickey_fuller_and_diff(exog_vars['Oro'])
 exog_vars['DXY'] = dickey_fuller_and_diff(exog_vars['DXY'])
 exog_vars['WTI'] = dickey_fuller_and_diff(exog_vars['WTI'])
-exog_vars['HGY'] = dickey_fuller_and_diff(exog_vars['HGY'])
+exog_vars['High Yield'] = dickey_fuller_and_diff(exog_vars['High Yield'])
 
 # Dividir en train (70%) y test (30%)
 split_point = int(len(combined_df) * 0.7)
